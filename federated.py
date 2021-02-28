@@ -13,15 +13,27 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 def copy_model(main, n_clients, fmod):
+
+    # copying main model weights and saving to temporary files to load at next training epoch
+    # main: main(centralized) model
+    # n_clients: number of clients(nodes)
+    # fmod: folder for temporary models
+
     for i in range(n_clients):
         name1 = fmod + 'federated_model_weights_' + str(i)
         torch.save(main.state_dict(), name1)
     """
+        #averaging optimizer parameters
         name1 = fmod + 'federated_model_opt_' + str(i)
         torch.save(opt.state_dict(), name1)
     """
 
+
 def get_loaders(n, main_ds, batch_size):
+    # doing random split of dataset at N equal sized loaders to emulate clients
+    # n: number of clients
+    # main_ds: dataset to split
+    # batch_size: batch size of each client data loader
     split = int(len(main_ds) / n)
     loaders = list()
     splits = [split for i in range(n)]
@@ -38,6 +50,8 @@ def get_loaders(n, main_ds, batch_size):
 
 
 def fix_arch(model, num_classes):
+    # fixing FC layer of ResNet to predict required number of classes
+    # num_classes: number of classes to fix architecture
     if str(type(model)) == '<class \'torchvision.models.resnet.ResNet\'>':
         # model.conv1 = torch.nn.Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         model.fc = torch.nn.Linear(2048, num_classes)
@@ -45,7 +59,8 @@ def fix_arch(model, num_classes):
 
 
 def fit_epoch(model, optimizer, criterion, train_dl, fn):
-    # model.to(device)
+    # training 1 epoch of given model and returning metrics
+    # fn: folder name to save all logs
     model.train()
     log('Fitting epoch', fn)
     running_loss = 0
@@ -74,6 +89,9 @@ def fit_epoch(model, optimizer, criterion, train_dl, fn):
 
 
 def save_client(client, opt, i, fmod):
+    # saving client training information to interrupt training for aggregation
+    # i: index number of client
+    # fmod: folder to save weights
     name1 = fmod + 'federated_model_weights_' + str(i)
     name2 = fmod + 'federated_model_opt_' + str(i)
     torch.save(client.state_dict(), name1)
@@ -83,6 +101,9 @@ def save_client(client, opt, i, fmod):
 
 
 def load_client(i, arch, lr, fmod, num_classes):
+    # loading client model and optimizer to continue training
+    # fmod: folder to load weights
+    # num_classes: number of classes to fix architecture
     model = arch()
     fix_arch(model, num_classes)
     name1 = fmod + 'federated_model_weights_' + str(i)
@@ -95,6 +116,7 @@ def load_client(i, arch, lr, fmod, num_classes):
 
 
 def validation(model, criterion, val_dl):
+    # validating on given loader 1 epoch on given model and returning metrics
     model.eval()
     correct = 0.
     loss = 0.
@@ -115,9 +137,11 @@ def validation(model, criterion, val_dl):
 
 
 def aggregation(main_model, n_clients, arch, lr, fmod, num_classes):
+    # simple weights averaging aggregation
+
     # client_models = list()
     # client_models = [load_client(i,arch,lr,fmod,num_classes) for i in range(n_clients)]
-    #global m1
+    # global m1
     for name in main_model.state_dict():
         param = main_model.state_dict()[name]
         tmp = torch.zeros(param.shape, dtype=torch.float).to(device)
@@ -127,6 +151,8 @@ def aggregation(main_model, n_clients, arch, lr, fmod, num_classes):
             tmp += model.state_dict()[name].data.float()
         param.data.copy_(tmp * (1. / n_clients))
     copy_model(main_model, n_clients, fmod)
+
+
 """
             if (j == 0) and fl:
                 m1 = opt
@@ -151,12 +177,29 @@ def aggregation(main_model, n_clients, arch, lr, fmod, num_classes):
             tmp += client_models[j][1].state_dict()[name].data.float()
         param.data.copy_(tmp * (1. / n_clients))
 """
-    #copy_model(main_model, n_clients, fmod)
 
+
+# copy_model(main_model, n_clients, fmod)
 
 
 def federated(n_clients, arch, train_dataset, val_dl, fn, epoch_step=1, lr=1e-3, n_epochs=30, num_classes=2,
               batch_size=128, train_dl=None):
+    """
+
+    :param n_clients: number of clients
+    :param arch: model architecture
+    :param train_dataset: PyTorch dataset
+    :param val_dl: validation data loader
+    :param fn: folder of experiment
+    :param epoch_step: number of local epochs before averaging
+    :param lr: learning rate
+    :param n_epochs: total number of epochs
+    :param num_classes: number of classes
+    :param batch_size: batch size
+    :param train_dl: train data loader
+    :return: loss and accuracy metric of federated trained model
+    """
+
     fmod = fn + '/models/'
     fplot = fn + '/plots/'
     try:
@@ -213,14 +256,27 @@ def federated(n_clients, arch, train_dataset, val_dl, fn, epoch_step=1, lr=1e-3,
 
 
 def single(arch, train_dl, val_dl, fn, lr=1e-3, epoch_step=1, n_epochs=30, num_classes=2):
+
+    """
+    Training model with same architecture as clients but using whole training dataset
+    :param arch: model architecture
+    :param train_dl: train data loader
+    :param val_dl: validation data loader
+    :param fn: folder of experiment
+    :param lr: learning rate
+    :param epoch_step: number of local epochs before validation
+    :param n_epochs: total number of epochs
+    :param num_classes: number of classes
+    :return: loss and accuracy
+    """
     fplot = fn + '/plots/'
     model = arch(pretrained=True)
-    #fix_arch(model, 4)
+    # fix_arch(model, 4)
 
-    #model.load_state_dict(torch.load('unlabeled_model'))
+    # model.load_state_dict(torch.load('unlabeled_model'))
     fix_arch(model, num_classes)
     model = model.to(device)
-    #torch.save(model.state_dict(), 'initial_model_unlabeled')
+    # torch.save(model.state_dict(), 'initial_model_unlabeled')
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
     val_loss = list()
@@ -248,6 +304,20 @@ def experiment(arch, train_dataset, validation_dataset, n_epochs=30, n_clients=1
                batch_size=128,
                epoch_step=1,
                prefix='1'):
+    """
+    Performing series of experiments comparing federated and single model performance with same initial weights
+    :param arch: model architecture
+    :param train_dataset: train dataset
+    :param validation_dataset: validation dataset
+    :param n_epochs: total number of epochs
+    :param n_clients: number of clients
+    :param n_experiments: number of experiments
+    :param learning_rate: learning rate
+    :param batch_size: batch size
+    :param epoch_step: number of local epochs before averaging
+    :param prefix: prefix to add in folder name
+    :return: void
+    """
     path = os.getcwd()
     # fn = path + '/experiments/' + prefix + '_nex' + str(n_experiments) + '_nep' + str(n_epochs) + '_nc' + str(
     #    n_clients) + '_epst' + str(epoch_step)

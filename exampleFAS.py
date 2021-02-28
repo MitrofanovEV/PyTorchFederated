@@ -15,6 +15,7 @@ dir_val = Path(path + '/data/Faces/Evaluation_Data/')
 
 val_files = sorted(list(dir_val.rglob('*.png')))
 
+
 #labels = [int(path.parent.parent.name == 'real') for path in train_files]
 
 train_dataset = FacesDataset(train_files, mode='train', augmentations=True)
