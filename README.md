@@ -10,7 +10,7 @@ Experimenting with Federated learning using PyTorch
 <p>
 <p><h1> Description </h1><p>  
 <p>
-  This project allows you to estimate federated model performance compared to centralized trained using single PC. Emulating clients, federated model being computed by splitting given dataset on equal parts, implementing simple federated averaging weights algorythm. Then single model with same architecture learns on whole given dataset. Performance graph of both models on validation dataset is plotted after end of experiment along with saving training logs.
+  This project allows you to estimate federated model performance compared to centralize trained on a single device. Emulating clients, federated model being computed by splitting given dataset on equal parts, implementing simple federated averaging weights algorythm. Then single model with same architecture and initial weights learns on whole given dataset. Performance graph of both models on validation dataset is plotted after end of experiment along with saving training logs.
 <p>
 <p><h1> Usage </h1><p>  
 <pre><code>
