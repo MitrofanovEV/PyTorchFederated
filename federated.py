@@ -271,9 +271,10 @@ def single(arch, train_dl, val_dl, fn, lr=1e-3, epoch_step=1, n_epochs=30, num_c
     """
     fplot = fn + '/plots/'
     model = arch(pretrained=True)
-    # fix_arch(model, 4)
+    fix_arch(model, 2)
 
-    # model.load_state_dict(torch.load('unlabeled_model'))
+    #model.load_state_dict(torch.load('unlabeled_model'))
+    model.load_state_dict(torch.load('initial_model'))
     fix_arch(model, num_classes)
     model = model.to(device)
     # torch.save(model.state_dict(), 'initial_model_unlabeled')
